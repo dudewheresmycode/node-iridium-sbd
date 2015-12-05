@@ -172,7 +172,6 @@ var iridium = {
 	
 			});	
 		}else{
-			if()
 			iridium.log('[SBD] Failed to send. The maxAttempts of send requests has been reached.');
 			callback({error:'Failed to send. The maxAttempts of send requests has been reached.'});
 		}
