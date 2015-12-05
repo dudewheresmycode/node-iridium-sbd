@@ -1,0 +1,24 @@
+{
+  "name": "iridium",
+  "description": "Node.js library for Iridium SBD (short burst data)",
+  "version": "0.0.1",
+  "author": {
+    "name": "Brian Robinson",
+    "email": "brian@ndmweb.com"
+  },
+  "contributors": [
+    {
+      "name": "Razvan Dragomirescu",
+      "email": "razvan.dragomirescu@veri.fi"
+    }
+	],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dudewheresmycode/node-iridium"
+  },
+  "dependencies": {
+	  "async": "*",
+	  "serialport": "*"
+	}
+}
