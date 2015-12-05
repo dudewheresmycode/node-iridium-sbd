@@ -17,27 +17,24 @@ iridium.open({
 });
 
 iridium.on('initialized', function() {
-	console.log(">> [SBD] IRIDIUM INITIALIZED");
-	iridium.getSignalQuality(function(err, qual){
-		console.log(">> QUALITY: ", err, qual);
-		
-		iridium.sendCompressedMessage("Hello world!", function(err,momsn){
-			console.log("Message Sent!");
-		});	
-		
-	});
+  console.log(">> [SBD] IRIDIUM INITIALIZED");
+
+  iridium.sendCompressedMessage("Hello world!", function(err,momsn){
+    console.log("Message Sent!");
+  });
+  
 });
 
 iridium.on('ringalert', function() {
-	console.log(">> [SBD] RING ALERT");
+  console.log(">> [SBD] RING ALERT");
 });
 
 iridium.on('newmessage', function(message, queued) {
-	console.log("[SBD] Received new message ", message);
+  console.log("[SBD] Received new message ", message);
 });
 
 iridium.on('debugLog',function(log){
-	console.log('>>> '+log);
+  console.log('>>> '+log);
 });
 
 
