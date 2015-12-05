@@ -48,6 +48,7 @@ var iridium = {
 		defaultTimeout: 60000, // 60 seconds general timeout for all commands
 		simpleTimeout: 2000, // 2 seconds timeout for simple command such as "echo off" (ATE0)
 		timeoutForever: -1,
+		maxAttempts: 10, //max attempts to send a message
 		port: "/dev/ttyUSB0",
 		flowControl: false
 	},
@@ -130,6 +131,8 @@ var iridium = {
 	  zlib.deflateRaw(new Buffer(text,'utf-8'), function(err, buffer) {
 		  if (!err) {
 		    iridium.log("Text compressed, initial length "+text.length+", compressed length "+buffer.length);
+		    
+		    iridium.c_attempt = 0;
 		    iridium.mailboxSend(buffer, callback);
 			}
 	  });	
@@ -144,28 +147,35 @@ var iridium = {
 	},
 	
 	mailboxSend: function(buffer, callback){
-		iridium.lock=1;
-		iridium.sendBinaryMessage(buffer, function(err, momsn) {
-      if (err==null) {
-          if (buffer) iridium.log("[SBD] Binary message sent successfully, assigned MOMSN "+momsn);
-
-          // check to see if there are other messages pending - if there are, send a new mailbox check to fetch them in 1 second
-          if (iridium.pending>0) setTimeout(function() {
-              iridium.sendMessage("");
-          }, 1000);
-          else {
-              iridium.lock=0;
-          }
-          callback();
-          
-      } else {
-          iridium.log("[SBD] Iridium returned error "+err+", will retry in 20s");
-          setTimeout(function() {
-              iridium.mailboxSend(buffer, callback);
-          }, 20000);
-      }
-
-		});	
+		iridium.c_attempt++;
+		if(iridium.c_attempt <= iridium.globals.maxAttempts){			
+			iridium.lock=1;
+			iridium.sendBinaryMessage(buffer, function(err, momsn) {
+	      if (err==null) {
+	          if (buffer) iridium.log("[SBD] Binary message sent successfully, assigned MOMSN "+momsn);
+	
+	          // check to see if there are other messages pending - if there are, send a new mailbox check to fetch them in 1 second
+	          if (iridium.pending>0) setTimeout(function() {
+	              iridium.sendMessage("");
+	          }, 1000);
+	          else {
+	              iridium.lock=0;
+	          }
+	          callback(false,momsn);
+	          
+	      } else {
+	          iridium.log("[SBD] Iridium returned error "+err+", will retry in 20s");
+	          setTimeout(function() {
+	              iridium.mailboxSend(buffer, callback);
+	          }, 20000);
+	      }
+	
+			});	
+		}else{
+			if()
+			iridium.log('[SBD] Failed to send. The maxAttempts of send requests has been reached.');
+			callback({error:'Failed to send. The maxAttempts of send requests has been reached.'});
+		}
 	},
 	
 	sendBinaryMessage: function(message, callback, maxWait) {
