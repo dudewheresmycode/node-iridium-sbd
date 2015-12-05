@@ -33,7 +33,7 @@ iridium.on('newmessage', function(message, queued) {
   console.log("[SBD] Received new message ", message);
 });
 
-iridium.on('debugLog',function(log){
+iridium.on('debug',function(log){
   console.log('>>> '+log);
 });
 

@@ -69,7 +69,7 @@ var iridium = {
 	log: function(message) {
 	    if(iridium.globals.debug){
 		    //sys.log(message);
-	      iridiumEvents.emit('debugLog', message);
+	      iridiumEvents.emit('debug', message);
 		  }
 	},
 	on: function(ev, callback) {
@@ -327,8 +327,7 @@ var iridium = {
 		    //change globals...
 				for(var key in config){
 					if(typeof iridium.globals[key]!='undefined'){ iridium.globals[key] = config[key]; }
-					console.log(key, config[key], iridium.globals[key]);
-					
+					iridium.log('set option: '+key+": "+config[key]);
 				}
 /*
 	        if (config.debug) debug=config.debug;
