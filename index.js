@@ -16,7 +16,6 @@ var sys = require('sys'),
 var iridiumEvents = new EventEmitter();
 
 
-//var buffer = "";
 var df;
 var er;
 var tf;
@@ -51,13 +50,7 @@ var iridium = {
 		maxAttempts: 10, //max attempts to send a message
 		port: "/dev/ttyUSB0",
 		flowControl: false
-	},
-/*
-	config: function(config){
-		for(var i in config){ if(iridium.globals[i]){ iridium.globals[i] = config[i]; } }
-	},
-*/
-	
+	},	
 	// emit a 'ringalert' event if the SBDRING unsollicited response is received
 	sbdring: function() {
 		iridiumEvents.emit('ringalert');
