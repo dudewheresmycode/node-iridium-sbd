@@ -1,4 +1,6 @@
-Node.js library for sending and receiving Iridium SBD (Short Burst Data). Created for using with [RockBlock](http://www.rock7.com)  Iridium 9602 modems.
+Node.js library for sending and receiving [Iridium SBD](https://www.iridium.com/services/details/iridium-sbd) (Short Burst Data).
+
+Created for using with [RockBlock](http://www.rock7.com) modems but should work with other Iridium 9602 modems.
 
 
 ## Installation
@@ -17,7 +19,7 @@ iridium.open({
 });
 
 iridium.on('initialized', function() {
-  console.log(">> [SBD] IRIDIUM INITIALIZED");
+  console.log("Iridium initialized");
 
   iridium.sendCompressedMessage("Hello world!", function(err,momsn){
     console.log("Message Sent!");
@@ -26,11 +28,12 @@ iridium.on('initialized', function() {
 });
 
 iridium.on('ringalert', function() {
-  console.log(">> [SBD] RING ALERT");
+  console.log("New incoming message event!");
+  iridium.mailboxCheck();
 });
 
 iridium.on('newmessage', function(message, queued) {
-  console.log("[SBD] Received new message ", message);
+  console.log("Received new message ", message);
 });
 
 iridium.on('debug',function(log){

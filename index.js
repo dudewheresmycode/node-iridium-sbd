@@ -54,7 +54,6 @@ var iridium = {
 	// emit a 'ringalert' event if the SBDRING unsollicited response is received
 	sbdring: function() {
 		iridiumEvents.emit('ringalert');
-    iridium.mailboxCheck();
 	},
 	
 		
