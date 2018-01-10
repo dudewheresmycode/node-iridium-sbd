@@ -5,12 +5,9 @@
 // Original Source: http://www.veri.fi/iridiumsbd.tar.gz
 // (C) 2012 Razvan Dragomirescu <razvan.dragomirescu@veri.fi>
 
-
-var sys = require('sys'),
-		zlib = require('zlib'),
+var zlib = require('zlib'),
 		async = require('async'),
-		serialport = require("serialport"),
-		SerialPort = serialport.SerialPort,
+		SerialPort = require("serialport"),
 		EventEmitter = require('events').EventEmitter;
 
 var iridiumEvents = new EventEmitter();
@@ -20,7 +17,7 @@ var df;
 var er;
 var tf;
 
-var serialPort;
+var _serialPort;
 var serialEmitter;
 
 var OK = /^OK\r/;
@@ -327,12 +324,12 @@ var iridium = {
 					iridium.globals.flowControl=!!config.flowControl;
 */
 	    }
-	    serialPort = new SerialPort(iridium.globals.port, {
+	    _serialPort = new SerialPort(iridium.globals.port, {
 	        baudrate: iridium.globals.baudrate,
 	        buffersize: 512,
 	        parser: iridium.readSBD
 	    });
-	    serialPort.on("data", function (data) {
+	    _serialPort.on("data", function (data) {
 	        iridium.log("< "+data);
 	        if (!er) {
 	            df(null, data);
@@ -372,11 +369,11 @@ var iridium = {
 	
 	        }
 	    });
-	    serialPort.on("error", function (error) {
+	    _serialPort.on("error", function (error) {
 	        iridium.log("ERROR: "+error);
 	    });
 	
-	    serialPort.on("open", function() {
+	    _serialPort.on("open", function() {
 		    if(iridium.globals.flowControl){
 			    iridium.init();
 			  }else{
@@ -614,10 +611,10 @@ var iridium = {
 	
 	    if (command instanceof Buffer) {
 	        iridium.log("[BINARY] > "+command.toString('hex'));
-	        serialPort.write(command);
+	        _serialPort.write(command);
 	    } else {
 	        iridium.log("> "+command);
-	        serialPort.write(command+"\r");
+	        _serialPort.write(command+"\r");
 	    }
 	}
 		
