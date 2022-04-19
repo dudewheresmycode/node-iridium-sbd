@@ -7,7 +7,8 @@
 
 var zlib = require("zlib"),
     async = require("async"),
-    SerialPort = require("serialport"),
+    {Transform} = require("stream"),
+    {SerialPort} = require("serialport"),
     EventEmitter = require("events").EventEmitter;
 
 var iridiumEvents = new EventEmitter();
@@ -17,19 +18,65 @@ var er;
 var tf;
 
 var _serialPort;
-var serialEmitter;
+var iridiumData = "";
 
 var OK = /^OK\r/;
 var ALL = /.*/;
 
-// this array contains all possible unsollicited response codes and their
+// read line by line or a whole binary blob, depending on the mode
+class CustomParser extends Transform {
+    constructor(options) {
+        super(options);
+        this.includeDelimiter = false;
+        this.delimiter = Buffer.from("\n");
+        this.buffer = Buffer.alloc(0);
+    }
+
+    _transform(chunk, encoding, cb) {
+        let data = Buffer.concat([this.buffer, chunk]);
+
+        // in binary mode we do not stop at OK or any other regexp, it's all time-based (it reads all available data for bufferTimeout seconds)
+        if (iridium.binary.mode) {
+            data.copy(iridium.binary.buffer, iridium.binary.bufferCounter);
+            iridium.binary.bufferCounter += buffer.length;
+
+            if (!iridium.binary.timeout) {
+                console.log("timeout happened!");
+                iridium.binary.timeout = setTimeout(() => {
+                    var ob = Buffer.alloc(iridium.binary.bufferCounter);
+                    iridium.binary.buffer.copy(ob, 0, 0, ob.length);
+                    this.push(ob);
+                    iridium.binary.bufferCounter = 0;
+                    iridium.binary.mode = false;
+                    cb();
+                }, bufferTimeout);
+            }
+        } else {
+            let position;
+            while ((position = data.indexOf(this.delimiter)) !== -1) {
+                this.push(data.slice(0, position + (this.includeDelimiter ? this.delimiter.length : 0)));
+                data = data.slice(position + this.delimiter.length);
+            }
+            cb();
+        }
+        this.buffer = data;
+    }
+
+    _flush(cb) {
+        this.push(this.buffer);
+        this.buffer = Buffer.alloc(0);
+        cb();
+    }
+}
+
+// this array contains all possible unsolicited response codes and their
 // corresponding handling functions
 
 var iridium = {
     buffer: "",
     data: "",
     messagePending: 0,
-    binary: {mode: false, buffer: new Buffer(512), bufferCounter: 0},
+    binary: {mode: false, buffer: Buffer.alloc(512), bufferCounter: 0},
     errors: [/ERROR/],
     lock: 0,
     pending: 0,
@@ -44,7 +91,7 @@ var iridium = {
         port: "/dev/ttyUSB0",
         flowControl: false,
     },
-    // emit a 'ringalert' event if the SBDRING unsollicited response is received
+    // emit a 'ringalert' event if the SBDRING unsolicited response is received
     sbdring: function () {
         iridiumEvents.emit("ringalert");
     },
@@ -67,7 +114,7 @@ var iridium = {
         iridium.log("Registration result: " + regevent + " with error " + regerr);
     },
 
-    unsollicited: {
+    unsolicited: {
         SBDRING: {
             pattern: /^SBDRING/,
             execute: "sbdring",
@@ -167,7 +214,7 @@ var iridium = {
 
         var command = "AT+SBDWB=" + buffer.length;
 
-        var ob = new Buffer(buffer.length + 2);
+        var ob = Buffer.alloc(buffer.length + 2);
         var sum = 0;
         for (var i = 0; i < buffer.length; i++) {
             ob[i] = buffer[i];
@@ -250,35 +297,8 @@ var iridium = {
         });
     },
 
-    // in binary mode we do not stop at OK or any other regexp, it's all time-based (it reads all available data for bufferTimeout seconds)
     enableBinaryMode: function (bufferTimeout) {
         iridium.binary.mode = true;
-        setTimeout(function () {
-            var ob = new Buffer(iridium.binary.bufferCounter);
-            iridium.binary.buffer.copy(ob, 0, 0, ob.length);
-            serialEmitter.emit("data", ob);
-            iridium.binary.bufferCounter = 0;
-            iridium.binary.mode = false;
-        }, bufferTimeout);
-    },
-
-    // read line by line or a whole binary blob, depending on the mode
-    readSBD: function (emitter, buffer) {
-        serialEmitter = emitter;
-
-        if (iridium.binary.mode) {
-            buffer.copy(iridium.binary.buffer, iridium.binary.bufferCounter);
-            iridium.binary.bufferCounter += buffer.length;
-        } else {
-            // Collect data
-            iridium.data += buffer.toString("binary");
-            // Split collected data by delimiter
-            var parts = iridium.data.split("\n");
-            iridium.data = parts.pop();
-            parts.forEach(function (part, i, array) {
-                emitter.emit("data", part);
-            });
-        }
     },
 
     // open the serial port
@@ -294,18 +314,15 @@ var iridium = {
                 }
                 iridium.log("set option: " + key + ": " + config[key]);
             }
-            /*
-	        if (config.debug) debug=config.debug;
-	        if (config.port) port=config.port;
-					iridium.globals.flowControl=!!config.flowControl;
-*/
         }
-        _serialPort = new SerialPort(iridium.globals.port, {
-            baudrate: iridium.globals.baudrate,
+        _serialPort = new SerialPort({
+            path: iridium.globals.port,
+            baudRate: iridium.globals.baudrate,
             buffersize: 512,
-            parser: iridium.readSBD,
         });
-        _serialPort.on("data", function (data) {
+        const parser = new CustomParser();
+        const pipe = _serialPort.pipe(parser);
+        pipe.on("data", function (data) {
             iridium.log("< " + data);
             if (!er) {
                 df(null, data);
@@ -314,9 +331,9 @@ var iridium = {
                 return;
             }
 
-            for (x in iridium.unsollicited) {
-                if (iridium.unsollicited[x].pattern.test(data)) {
-                    iridium[iridium.unsollicited[x].execute](data);
+            for (x in iridium.unsolicited) {
+                if (iridium.unsolicited[x].pattern.test(data)) {
+                    iridium[iridium.unsolicited[x].execute](data);
                     return;
                 }
             }
@@ -431,7 +448,7 @@ var iridium = {
 
                 var ib = buffer;
                 var messageLength = ib.readUInt16BE(0);
-                var messageBuffer = new Buffer(messageLength);
+                var messageBuffer = Buffer.alloc(messageLength);
                 ib.copy(messageBuffer, 0, 2, messageLength + 2);
 
                 iridium.log("Received message is " + messageBuffer.toString("hex"));
