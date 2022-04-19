@@ -38,10 +38,9 @@ class CustomParser extends Transform {
         // in binary mode we do not stop at OK or any other regexp, it's all time-based (it reads all available data for bufferTimeout seconds)
         if (iridium.binary.mode) {
             data.copy(iridium.binary.buffer, iridium.binary.bufferCounter);
-            iridium.binary.bufferCounter += buffer.length;
+            iridium.binary.bufferCounter += chunk.length;
 
             if (!iridium.binary.timeout) {
-                console.log("timeout happened!");
                 iridium.binary.timeout = setTimeout(() => {
                     var ob = Buffer.alloc(iridium.binary.bufferCounter);
                     iridium.binary.buffer.copy(ob, 0, 0, ob.length);
@@ -49,7 +48,7 @@ class CustomParser extends Transform {
                     iridium.binary.bufferCounter = 0;
                     iridium.binary.mode = false;
                     cb();
-                }, bufferTimeout);
+                }, iridium.binary.bufferTimeout);
             }
         } else {
             let position;
@@ -96,6 +95,14 @@ var iridium = {
         iridiumEvents.emit("ringalert");
     },
 
+    // wrapper for callbacks. logs if no callback is specified
+    runCallback: function (callback, args) {
+        if (callback && typeof callback === "function") {
+            callback.call(this, ...args);
+        } else {
+            iridium.log(args);
+        }
+    },
     // log if debug enabled
     log: function (message) {
         if (iridium.globals.debug) {
@@ -152,7 +159,7 @@ var iridium = {
     initComplete: function (callback) {
         iridiumEvents.emit("initialized");
         iridium.log("[SBD] IRIDIUM INITIALIZED");
-        callback(null);
+        iridium.runCallback(callback, [null]);
     },
 
     sendCompressedMessage: function (text, callback) {
@@ -166,11 +173,11 @@ var iridium = {
         });
     },
 
-    mailboxCheck: function () {
+    mailboxCheck: function (callback) {
         if (iridium.lock) {
             iridium.pending++;
         } else {
-            iridium.sendMessage("");
+            iridium.sendMessage("", callback);
         }
     },
 
@@ -185,12 +192,12 @@ var iridium = {
                     // check to see if there are other messages pending - if there are, send a new mailbox check to fetch them in 1 second
                     if (iridium.pending > 0)
                         setTimeout(function () {
-                            iridium.sendMessage("");
+                            iridium.sendMessage("", callback);
                         }, 1000);
                     else {
                         iridium.lock = 0;
                     }
-                    callback(false, momsn);
+                    iridium.runCallback(callback, [false, momsn]);
                 } else {
                     iridium.log("[SBD] Iridium returned error " + err + ", will retry in 20s");
                     setTimeout(function () {
@@ -200,7 +207,9 @@ var iridium = {
             });
         } else {
             iridium.log("[SBD] Failed to send. The maxAttempts of send requests has been reached.");
-            callback({error: "Failed to send. The maxAttempts of send requests has been reached."});
+            iridium.runCallback(callback, [
+                {error: "Failed to send. The maxAttempts of send requests has been reached."},
+            ]);
         }
     },
 
@@ -229,7 +238,7 @@ var iridium = {
             if (err) {
                 iridium.messagePending = 0;
                 iridium.clearMOBuffers(function () {
-                    callback(err);
+                    iridium.runCallback(callback, [err]);
                 });
                 return;
             }
@@ -239,7 +248,7 @@ var iridium = {
                 if (berr) {
                     iridium.messagePending = 0;
                     iridium.clearMOBuffers(function () {
-                        callback(berr);
+                        iridium.runCallback(callback, [berr]);
                     });
                     return;
                 }
@@ -249,7 +258,7 @@ var iridium = {
                     if (xerr) {
                         iridium.messagePending = 0;
                         iridium.clearMOBuffers(function () {
-                            callback(xerr);
+                            iridium.runCallback(callback, [xerr]);
                         });
                         return;
                     }
@@ -274,7 +283,7 @@ var iridium = {
             if (err) {
                 iridium.messagePending = 0;
                 iridium.clearMOBuffers(function () {
-                    callback(err);
+                    iridium.runCallback(callback, [err]);
                 });
                 return;
             }
@@ -284,7 +293,7 @@ var iridium = {
                 if (xerr) {
                     iridium.messagePending = 0;
                     iridium.clearMOBuffers(function () {
-                        callback(xerr);
+                        iridium.runCallback(callback, [xerr]);
                     });
                     return;
                 }
@@ -299,6 +308,7 @@ var iridium = {
 
     enableBinaryMode: function (bufferTimeout) {
         iridium.binary.mode = true;
+        iridium.binary.bufferTimeout = bufferTimeout;
     },
 
     // open the serial port
@@ -383,13 +393,14 @@ var iridium = {
 
     getSystemTime: function (callback) {
         iridium.AT("AT+CCLK?", OK, ALL, function (err, result) {
-            if (err) callback(err);
-            else {
+            if (err) {
+                iridium.runCallback(callback, [err]);
+            } else {
                 var m = result.match(/CCLK:(\d+)\/(\d+)\/(\d+),(\d+):(\d+):(\d+)/);
                 if (!m) callback("UNKNOWN_TIME");
                 else {
                     var ctime = new Date(Date.UTC(2000 + Number(m[1]), m[2] - 1, m[3], m[4], m[5], m[6]));
-                    callback(null, ctime);
+                    iridium.runCallback(callback, [null, ctime]);
                 }
             }
         });
@@ -441,7 +452,7 @@ var iridium = {
             function (err, buffer) {
                 if (err) {
                     iridium.clearMTBuffers(function () {
-                        callback(err);
+                        iridium.runCallback(callback, [err]);
                     });
                     return;
                 }
@@ -471,7 +482,7 @@ var iridium = {
             function (err, text) {
                 if (err) {
                     iridium.clearMTBuffers(function () {
-                        callback(err);
+                        iridium.runCallback(callback, [err]);
                     });
                     return;
                 }
@@ -492,7 +503,7 @@ var iridium = {
             if (err) {
                 iridium.messagePending = 1;
                 iridium.clearMOBuffers(function () {
-                    callback(err);
+                    iridium.runCallback(callback, [err]);
                 });
                 return;
             }
@@ -513,21 +524,21 @@ var iridium = {
                     iridium.log("MO message failed, radio failure");
                     iridium.messagePending = 1;
                     iridium.clearMOBuffers(function () {
-                        callback("radio failure");
+                        iridium.runCallback(callback, ["radio failure"]);
                     });
                     return;
                 } else if (status == 32) {
                     iridium.log("MO message failed, network failure");
                     iridium.messagePending = 1;
                     iridium.clearMOBuffers(function () {
-                        callback("network failure");
+                        iridium.runCallback(callback, ["network failure"]);
                     });
                     return;
                 } else {
                     iridium.log("MO message failed, error " + status);
                     iridium.messagePending = 1;
                     iridium.clearMOBuffers(function () {
-                        callback("unknown failure");
+                        iridium.runCallback(callback, ["unknown failure"]);
                     });
                     return;
                 }
@@ -546,7 +557,7 @@ var iridium = {
 
                     iridium.readBinaryMessage(mtqueued, function () {
                         iridium.clearMOBuffers(function (err) {
-                            callback(err, momsn);
+                            iridium.runCallback(callback, [err, momsn]);
                         });
                     });
 
@@ -565,7 +576,7 @@ var iridium = {
     },
     finishSession: function (callback, momsn) {
         iridium.clearMOBuffers(function (err) {
-            callback(err, momsn);
+            iridium.runCallback(callback, [err, momsn]);
         });
     },
     // simplified AT command function - when you don't care about the result
