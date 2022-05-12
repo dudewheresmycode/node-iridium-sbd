@@ -47,6 +47,7 @@ class CustomParser extends Transform {
                     this.push(ob);
                     iridium.binary.bufferCounter = 0;
                     iridium.binary.mode = false;
+                    iridium.binary.timeout = false;
                     cb();
                 }, iridium.binary.bufferTimeout);
             }
