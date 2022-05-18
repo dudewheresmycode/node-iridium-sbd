@@ -12,33 +12,33 @@ $ npm install iridium-sbd
 ## Usage
 
 ```javascript
-const iridium = require("iridium-sbd");
+const iridium = require('iridium-sbd');
 
 iridium.open({
     debug: 1, //turn debugging on
-    port: "/dev/ttyUSB0",
+    port: '/dev/ttyUSB0',
     flowControl: true, //set to false to disable flowControl on the SBD for 3-wire UART setups
 });
 
-iridium.on("initialized", () => {
-    console.log("Iridium initialized");
+iridium.on('initialized', () => {
+    console.log('Iridium initialized');
 
-    iridium.sendCompressedMessage("Hello world!", (err, momsn) => {
-        console.log("Message Sent!");
+    iridium.sendCompressedMessage('Hello world!', (err, momsn) => {
+        console.log('Message Sent!');
     });
 });
 
-iridium.on("ringalert", () => {
-    console.log("New incoming message event!");
+iridium.on('ringalert', () => {
+    console.log('New incoming message event!');
     iridium.mailboxCheck();
 });
 
-iridium.on("newmessage", (message, queued) => {
-    console.log("Received new message ", message);
+iridium.on('newmessage', (message, queued) => {
+    console.log('Received new message ', message);
 });
 
-iridium.on("debug", log => {
-    console.log(">>> " + log);
+iridium.on('debug', log => {
+    console.log('>>> ' + log);
 });
 ```
 
